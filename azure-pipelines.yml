@@ -1,0 +1,37 @@
+pool:
+  vmImage: windows-latest
+
+parameters:
+# Name it shows up with in the Keyvault
+  - name: Cert_DNS_Name
+    default: 'EnterCertificateNameHere'
+# Name of the Keyvault to be used
+  - name: Keyvault
+    default: 'EnterKeyvaultNameHere'
+
+
+- task: AzurePowerShell@5
+  name: 'Getting_PFX_File'
+  inputs:
+    azureSubscription: 'GSPipelines'
+    ScriptType: 'InlineScript'
+    Inline: |
+      $cert = Get-AzKeyVaultCertificate -VaultName ${{parameters.Keyvault}} -Name ${{parameters.Cert_DNS_Name}}
+      $secret = Get-AzKeyVaultSecret -VaultName ${{parameters.Keyvault}} -Name ${{parameters.Cert_DNS_Name}} -AsPlainText
+      $secretByte = [Convert]::FromBase64String($secret)
+      [System.IO.File]::WriteAllBytes("$($cert.Name).pfx", $secretByte)
+      write-host "Key $($cert.Name).pfx has successfully been placed locally in $(Build.ArtifactStagingDirectory) for use."
+    azurePowerShellVersion: 'LatestVersion'
+    workingDirectory: $(Build.ArtifactStagingDirectory)
+
+# optional, this will publish the pfx file if needed, but was only used for developing the pipeline.
+# recomendation is to remove this when used in production.
+- task: PublishBuildArtifacts@1
+  inputs:
+    pathToPublish: '$(Build.ArtifactStagingDirectory)' 
+    artifactName: 'Certificate' 
+    publishLocation: 'Container'
+
+
+
+
